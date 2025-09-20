@@ -22,9 +22,23 @@
 .const MOVE           0x9020
 
 .const BLACK          0
+.const BLUE           1
+.const GREEN          2
+.const CYAN           3
+.const RED            4
+.const MAGENTA        5
+.const BROWN          6
+.const GREY           7
 .const DARKGREY       8
+.const LIGHTBLUE      9
+.const LIGHTGREEN     10
 .const LIGHTCYAN      11
+.const LIGHTRED       12
+.const LIGHTMAGENTA   13
+.const YELLOW         14
 .const WHITE          15
+
+.const KEY_SPACE      32
 
 
 !prep
@@ -43,14 +57,11 @@
     str [SET_X], rZ
     str [SET_Y], rZ
 
+    set rD, '@'
+
+    cal !clear_current
+    str [CLEAR_SCREEN], rZ
     cal !set_current
-
-    set rA, BLACK
-    str [SET_BG_COLOR], rA
-    set rA, WHITE
-    str [SET_FG_COLOR], rA
-
-
 
     jmp !main
 
@@ -84,9 +95,10 @@
     str [SET_BG_COLOR], rA
     set rA, LIGHTCYAN
     str [SET_FG_COLOR], rA
-    set rA, '@'
-    str [SET_CHAR], rA
+    str [SET_CHAR], rD
     ret
+
+
 
 ; Stores the caputred key in rA
 ; Stores the corresponding move direction in rB
@@ -99,6 +111,35 @@
         dly 5
         jmp !get_dir_from_key
     !found_any_key
+
+    cmp rA, KEY_SPACE
+    jne !not_space
+        ; Draw an empty character, then clear the character, and make cursor visible
+        set rD, ' '
+        cal !set_current
+        set rD, rZ
+        str [SET_CURSOR_VIS], SP
+
+        jmp !get_dir_from_key
+    !not_space
+
+    cmp rD, rZ
+    jne !key_already_set
+        ; Keep looking for new character if not a visible character
+        cmp rA, '!'
+        jl !get_dir_from_key
+        cmp rA, '~'
+        jg !get_dir_from_key
+
+        ; Set and draw the new character
+        set rD, rA
+        cal !set_current
+        str [SET_CURSOR_VIS], rZ
+
+        ; Keep looping
+        jmp !get_dir_from_key
+    !key_already_set
+
 
     cmp rA, 'w'
     jne !not_W
