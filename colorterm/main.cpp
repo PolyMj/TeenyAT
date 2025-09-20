@@ -145,8 +145,8 @@ using namespace rogueutil;
     #endif
 #endif
 
-
-#define gotoxy_pad(x,y)   gotoxy(x+(int)(TEXT_PADDING_LOWER), y+(int)(TEXT_PADDING_LOWER))
+// Calls `gotoxy(x,y)`, but correctly handles wrapping and padding
+#define gotoxy_wrap_pad(x,y)   fix_xy(); gotoxy(x+(int)(TEXT_PADDING_LOWER), y+(int)(TEXT_PADDING_LOWER))
 
 enum Direction {
     East = 0,
@@ -194,6 +194,14 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
+// Handles wrapping for X/Y positions, includes padding
+void fix_xy()
+{
+    int tc = tcols() - (TEXT_PADDING_LOWER + TEXT_PADDING_UPPER);
+    int tr = trows() - (TEXT_PADDING_LOWER + TEXT_PADDING_UPPER);
+    x = (x + tc) % tc;
+    y = (y + tr) % tr;
+}
 
 // Move the cursor in the given direction
 void move_cursor(Direction dir)
@@ -232,11 +240,7 @@ void move_cursor(Direction dir)
         return;
     }
 
-    int tc = tcols() - (TEXT_PADDING_LOWER + TEXT_PADDING_UPPER);
-    int tr = trows() - (TEXT_PADDING_LOWER + TEXT_PADDING_UPPER);
-    x = (x + tc) % tc;
-    y = (y + tr) % tr;
-    gotoxy_pad(x,y);
+    gotoxy_wrap_pad(x,y);
 }
 
 
@@ -255,12 +259,12 @@ void bus_write(teenyat *t, tny_uword addr, tny_word data, uint16_t *delay) {
         break;
     case SET_CHAR:
         cout << (char)data.u;
-        gotoxy_pad(x, y);
+        gotoxy_wrap_pad(x, y);
         break;
     case PRINT_CHAR:
         cout << (char)data.u;
-        x = (x + 1) % tcols();
-        gotoxy_pad(x, y);
+        x += 1;
+        gotoxy_wrap_pad(x, y);
         break;
     case CURSOR_VIS:
         cursor_visible = data.u;
@@ -271,12 +275,12 @@ void bus_write(teenyat *t, tny_uword addr, tny_word data, uint16_t *delay) {
         setConsoleTitle(title.c_str());
         break;
     case X:
-        x = data.u % tcols();
-        gotoxy_pad(x, y);
+        x = data.u;
+        gotoxy_wrap_pad(x, y);
         break;
     case Y:
-        y = data.u % trows();
-        gotoxy_pad(x, y);
+        y = data.u;
+        gotoxy_wrap_pad(x, y);
         break;
     case MOVE_E:
         move_cursor(Direction::East);
