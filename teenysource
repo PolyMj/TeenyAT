@@ -1,0 +1,10 @@
+TEENYAT_HOME=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+TNASM_PATH="${TEENYAT_HOME}/tnasm/tnasm"
+LCD_PATH="${TEENYAT_HOME}/lcd/lcd"
+EDISON_PATH="${TEENYAT_HOME}/edison/edison"
+COLORTERM_PATH="${TEENYAT_HOME}/colorterm/colorterm"
+
+alias tnasm="$TNASM_PATH"
+alias lcd="$LCD_PATH"
+alias edison="$EDISON_PATH"
+alias colorterm="$COLORTERM_PATH"
