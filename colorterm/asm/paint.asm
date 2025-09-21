@@ -99,27 +99,54 @@
 
 
 ; KEYBINDS
-    .const KB_UP                'w'
-    .const KB_LEFT              'a'
-    .const KB_DOWN              's'
-    .const KB_RIGHT             'd'
-    .const KB_BRUSH_SINGLE      'j'
-    .const KB_BRUSH_UP          'h'
-    .const KB_BRUSH_PEN         'k'
-    .const KB_BRUSH_RADIAL      'l'
-    .const KB_BRUSH_FILL        ';'
-    .const KB_PAINT_COL         'u'
-    .const KB_PAINT_TEX_INTN    'i'
-    .const KB_PAINT_TEX_RAND    'o'
-    .const KB_PAINT_RAD_RADI    'm'
+    .const KB_UP                    'w'
+    .const KB_LEFT                  'a'
+    .const KB_DOWN                  's'
+    .const KB_RIGHT                 'd'
+    .const KB_BRUSH_SINGLE          'j'
+    .const KB_BRUSH_UP              'h'
+    .const KB_BRUSH_PEN             'k'
+    .const KB_BRUSH_RADIAL          'l'
+    .const KB_BRUSH_FILL            ';'
+    .const KB_PAINT_MODE_UNI        'g'
+    .const KB_PAINT_MODE_TEX        'b'
+    .const KB_PAINT_BG_COL          'y'
+    .const KB_PAINT_FG_COL          'u'
+    .const KB_PAINT_TEX_INTEN_UP    'i'
+    .const KB_PAINT_TEX_INTEN_DN    'I'
+    .const KB_PAINT_TEX_RAND        'o'
+    .const KB_PAINT_RAD_RADI        'm'
+
+
+; ARRAYS AND WHATNOT
+    .var move_callback
+
+    ; Brush-mode settings:
+        .var brush_radial_radius    3
+        .var brush_fill_start_x     0
+        .var brush_fill_start_y     0
+
+    .var paint_callback
+
+    ; Paint-mode settings:
+        .var paint_fg_col   WHITE
+        .var paint_bg_col   BLACK
+        .var paint_uniform_char         '#'
+        .var paint_textured_randomness  0
+        .var paint_textured_intensity   7
+
+    !charater_gradient ; Len=8
+    .raw '.' '-' ':' '+' '%' '$' '&' '#'
+    ;    ....----::::++++%%%%$$$$&&&&####
+    .const MAX_INTENSITY 7
 
 
 !prep
     cal !set_colors
-    set rA, '#'
-    str [paint_uniform_char], rA
     set rA, !mcb_up
-    str [move_callback], rA
+    str [move_callback], rA     ; Use "do-nothing" as the default movement callback (no painting)
+    set rA, !pcb_uniform
+    str [paint_callback], rA    ; Use "uniform-pain" as the default paint type
     jmp !main_loop
 
 
@@ -207,9 +234,86 @@
                 cal !mcb_pen
                 jmp !keybinds_done
             !not_brush_pen
+        
+
+        ; Paint mode
+            cmp rA, KB_PAINT_MODE_UNI
+            jne !not_paint_mode_uni
+                set rA, !pcb_uniform
+                str [paint_callback], rA
+                jmp !keybinds_done
+            !not_paint_mode_uni
+
+            cmp rA, KB_PAINT_MODE_TEX
+            jne !not_paint_mode_tex
+                set rA, !pcb_textured
+                str [paint_callback], rA
+                jmp !keybinds_done
+            !not_paint_mode_tex
+
+
+
+        ; Paint settings
+            cmp rA, KB_PAINT_BG_COL
+            jne !not_paint_bg_color
+                lod rA, [paint_bg_col]
+                inc rA
+                and rA, 0x7
+                str [paint_bg_col], rA
+                cal !set_colors
+                jmp !keybinds_done
+            !not_paint_bg_color
+
+            cmp rA, KB_PAINT_FG_COL
+            jne !not_paint_fg_color
+                lod rA, [paint_fg_col]
+                inc rA
+                and rA, 0xF
+                str [paint_fg_col], rA
+                cal !set_colors
+                jmp !keybinds_done
+            !not_paint_fg_color
+
+            cmp rA, KB_PAINT_TEX_INTEN_UP
+            jne !not_paint_tex_inten_up
+                lod rA, [paint_textured_intensity]
+                cmp rA, MAX_INTENSITY
+                je !keybinds_done ; if at max, ignore
+                jg !paint_tex_inten_too_high
+            
+                ; if not at max, increase intensity
+                    inc rA
+                    str [paint_textured_intensity], rA
+                    jmp !keybinds_done
+
+                ; if above max, set to max
+                !paint_tex_inten_too_high
+                    set rA, MAX_INTENSITY
+                    str [paint_textured_intensity], rA
+                
+                jmp !keybinds_done
+            !not_paint_tex_inten_up
+
+            cmp rA, KB_PAINT_TEX_INTEN_DN
+            jne !not_paint_tex_inten_dn
+                lod rA, [paint_textured_intensity]
+                cmp rA, rZ
+                je !keybinds_done ; if at min, ignore
+                jl !paint_tex_inten_too_low
+            
+                ; if not at min, decrease intensity
+                    dec rA
+                    str [paint_textured_intensity], rA
+                    jmp !keybinds_done
+
+                ; if below min, set to min
+                !paint_tex_inten_too_low
+                    str [paint_textured_intensity], rZ
+                
+                jmp !keybinds_done
+            !not_paint_tex_inten_dn
 
     !keybinds_done
-
 
     jmp !main_loop
 
@@ -231,38 +335,30 @@
     jmp !main_loop
 
 
+; Brush-up, meaning do nothing
 !mcb_up
     ret
 
 
+; Brush=Pen, so draw a single character
 !mcb_pen
+    lod rA, [paint_callback]
+    cal rA
+    ret
+
+
+; Paint is uniform, so just draw the specified character
+!pcb_uniform
     lod rA, [paint_uniform_char]
     str [SET_CHAR], rA
     ret
 
-    
 
-
-; ARRAYS AND WHATNOT
-    ; ; Up=0, Pen=1, Radial=2, Fill=3
-    ; .var brush_mode 0
-    .var move_callback  !mcb_pen
-
-    ; Brush-mode settings:
-        .var brush_radial_radius    3
-        .var brush_fill_start_x     0
-        .var brush_fill_start_y     0
-
-    ; Uniform=0, Textured=1
-    .var paint_mode     0
-    .var paint_fg_col   WHITE
-    .var paint_bg_col   BLACK
-
-    ; Paint-mode settings:
-        .var paint_uniform_char         '#'
-        .var paint_textured_randomness  0
-        .var paint_textured_intensity   7
-
-    !charater_gradient ; Len=8
-    .raw '.' '-' ':' '+' '%' '$' '&' '#'
-    ;    ....----::::++++%%%%$$$$&&&&####
+; Paint is textured, so take random characters using intensity
+!pcb_textured
+    lod rA, [paint_textured_intensity]
+    set rC, !charater_gradient
+    add rC, rA
+    lod rC, [rC]
+    str [SET_CHAR], rC
+    ret
