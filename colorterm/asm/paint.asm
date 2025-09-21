@@ -88,6 +88,7 @@ jmp !prep
     .const KB_DOWN                  's'
     .const KB_RIGHT                 'd'
     .const KB_BRUSH_SINGLE          'j'
+    .const KB_BRUSH_ERASE           'J'
     .const KB_BRUSH_UP              'h'
     .const KB_BRUSH_PEN             'k'
     .const KB_BRUSH_RADIAL          'l'
@@ -133,6 +134,9 @@ jmp !prep
     str [move_callback], rA     ; Use "do-nothing" as the default movement callback (no painting)
     set rA, !pcb_uniform
     str [paint_callback], rA    ; Use "uniform-pain" as the default paint type
+    
+    str [CLEAR_SCREEN], rZ
+    
     jmp !main_loop
 
 
@@ -204,6 +208,14 @@ jmp !prep
                 cal !mcb_pen
                 jmp !keybinds_done
             !not_brush_single
+
+            ; Not actually a mode, just set the space character
+            cmp rA, KB_BRUSH_ERASE
+            jne !not_brush_erase
+                set rA, ' '
+                str [SET_CHAR], rA
+                jmp !keybinds_done
+            !not_brush_erase
 
             cmp rA, KB_BRUSH_UP
             jne !not_brush_up
