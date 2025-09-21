@@ -1,5 +1,8 @@
+jmp !prep
+
 ; PERIPHERAL CONSTANTS
-    .const RAND           0x8010
+    .const RAND_POS       0x8010
+    .const RAND_BITS      0x8011
     .const SET_FG_COLOR   0x9000
     .const SET_BG_COLOR   0x9001
     .const CLEAR_SCREEN   0x9002
@@ -78,25 +81,6 @@
     .const KEY_NUMPAD8  134
     .const KEY_NUMPAD9  135
 
-; Ideas
-    ; Paint program
-        ; Use WASD to move cursor
-        ; "Pen-up" and "pen-down" buttons
-        ; Adjustable parameters
-            ; Foreground Color
-            ; Foreground Intensity
-                ; Will just pick from a list of characters that are more or less "intense"
-            ; Background Color
-            ; Brush size
-                ; Square brush, maybe toggleable gradiant
-            ; Texture
-                ; Randomness is selection of intensity for each character
-
-    ;;; rE = number of ASCII printable character
-    set rE, '~'
-    sub rE, '!'
-    inc rE
-
 
 ; KEYBINDS
     .const KB_UP                    'w'
@@ -114,7 +98,8 @@
     .const KB_PAINT_FG_COL          'u'
     .const KB_PAINT_TEX_INTEN_UP    'i'
     .const KB_PAINT_TEX_INTEN_DN    'I'
-    .const KB_PAINT_TEX_RAND        'o'
+    .const KB_PAINT_TEX_RAND_UP     'o'
+    .const KB_PAINT_TEX_RAND_DN     'O'
     .const KB_PAINT_RAD_RADI        'm'
 
 
@@ -133,11 +118,12 @@
         .var paint_bg_col   BLACK
         .var paint_uniform_char         '#'
         .var paint_textured_randomness  0
+        .var paint_textured_true_rand   0
         .var paint_textured_intensity   7
 
     !charater_gradient ; Len=8
-    .raw '.' '-' ':' '+' '%' '$' '&' '#'
-    ;    ....----::::++++%%%%$$$$&&&&####
+    .raw '.' '-' ':' '+' '%' '$' '&' '#' 'E'
+    ;    ....----::::++++%%%%$$$$&&&&#### ERROR
     .const MAX_INTENSITY 7
 
 
@@ -278,40 +264,91 @@
             jne !not_paint_tex_inten_up
                 lod rA, [paint_textured_intensity]
                 cmp rA, MAX_INTENSITY
-                je !keybinds_done ; if at max, ignore
                 jg !paint_tex_inten_too_high
+
+                ; if at max, ignore
+                je !keybinds_done
             
                 ; if not at max, increase intensity
                     inc rA
                     str [paint_textured_intensity], rA
+                    cal !fix_random
                     jmp !keybinds_done
 
                 ; if above max, set to max
                 !paint_tex_inten_too_high
                     set rA, MAX_INTENSITY
                     str [paint_textured_intensity], rA
-                
-                jmp !keybinds_done
+                    cal !fix_random
+                    jmp !keybinds_done
             !not_paint_tex_inten_up
 
             cmp rA, KB_PAINT_TEX_INTEN_DN
             jne !not_paint_tex_inten_dn
                 lod rA, [paint_textured_intensity]
                 cmp rA, rZ
-                je !keybinds_done ; if at min, ignore
                 jl !paint_tex_inten_too_low
+
+                ; if at min, ignore
+                je !keybinds_done
             
                 ; if not at min, decrease intensity
                     dec rA
                     str [paint_textured_intensity], rA
+                    cal !fix_random
                     jmp !keybinds_done
 
                 ; if below min, set to min
                 !paint_tex_inten_too_low
                     str [paint_textured_intensity], rZ
-                
-                jmp !keybinds_done
+                    cal !fix_random
+                    jmp !keybinds_done
             !not_paint_tex_inten_dn
+
+            cmp rA, KB_PAINT_TEX_RAND_UP
+            jne !not_paint_tex_rand_up
+                lod rA, [paint_textured_randomness]
+                cmp rA, MAX_INTENSITY
+                jg !paint_tex_rand_too_high
+
+                ; if at max, ignore
+                je !keybinds_done
+            
+                ; if not at max, increase randomness
+                    inc rA
+                    str [paint_textured_randomness], rA
+                    cal !fix_random
+                    jmp !keybinds_done
+
+                ; if above max, set to max
+                !paint_tex_rand_too_high
+                    set rA, MAX_INTENSITY
+                    str [paint_textured_randomness], rA
+                    cal !fix_random
+                    jmp !keybinds_done
+            !not_paint_tex_rand_up
+
+            cmp rA, KB_PAINT_TEX_RAND_DN
+            jne !not_paint_tex_rand_dn
+                lod rA, [paint_textured_randomness]
+                cmp rA, rZ
+                jl !paint_tex_rand_too_low
+
+                ; if at min, ignore
+                je !keybinds_done
+            
+                ; if not at min, decrease randomness
+                    dec rA
+                    str [paint_textured_randomness], rA
+                    cal !fix_random
+                    jmp !keybinds_done
+
+                ; if below min, set to min
+                !paint_tex_rand_too_low
+                    str [paint_textured_randomness], rZ
+                    cal !fix_random
+                    jmp !keybinds_done
+            !not_paint_tex_rand_dn
 
     !keybinds_done
 
@@ -357,8 +394,32 @@
 ; Paint is textured, so take random characters using intensity
 !pcb_textured
     lod rA, [paint_textured_intensity]
+    lod rB, [paint_textured_true_rand]
+    
+    cmp rB, rZ
+    jle !skip_rand
+        ; Add random value to intensity
+        inc rB
+        lod rC, [RAND_POS]
+        mod rC, rB
+        add rA, rC
+    !skip_rand
+
     set rC, !charater_gradient
     add rC, rA
     lod rC, [rC]
     str [SET_CHAR], rC
+    ret
+
+
+!fix_random
+    lod rA, [paint_textured_intensity]
+    lod rB, [paint_textured_randomness]
+    set rC, MAX_INTENSITY
+    sub rC, rA
+    cmp rB, rC
+    jle !random_is_fine
+        set rB, rC
+    !random_is_fine
+    str [paint_textured_true_rand], rB
     ret
