@@ -163,6 +163,12 @@ jmp !prep
         jmp !main_loop
     !found_any_key
 
+    ; Sometimes the character actually makes it to the terminal, so reset the position
+    lod rB, [CURSOR_X]
+    str [CURSOR_X], rB
+    lod rB, [CURSOR_Y]
+    str [CURSOR_Y], rB
+
     ; Parse keybinds
         ; Uniform character change
             ; Delete to cancel character change
@@ -275,14 +281,14 @@ jmp !prep
             jne !not_paint_mode_uni
                 set rA, !pcb_uniform
                 str [paint_callback], rA
-                jmp !keybinds_done
+                jmp !repaint_if_brush_down
             !not_paint_mode_uni
 
             cmp rA, KB_PAINT_MODE_TEX
             jne !not_paint_mode_tex
                 set rA, !pcb_textured
                 str [paint_callback], rA
-                jmp !keybinds_done
+                jmp !repaint_if_brush_down
             !not_paint_mode_tex
 
 
@@ -294,7 +300,8 @@ jmp !prep
                 and rA, 0x7
                 str [paint_bg_col], rA
                 cal !set_colors
-                jmp !keybinds_done
+                
+                jmp !repaint_if_brush_down
             !not_paint_bg_color
 
             cmp rA, KB_PAINT_FG_COL
@@ -304,7 +311,8 @@ jmp !prep
                 and rA, 0xF
                 str [paint_fg_col], rA
                 cal !set_colors
-                jmp !keybinds_done
+                
+                jmp !repaint_if_brush_down
             !not_paint_fg_color
 
             cmp rA, KB_PAINT_TEX_INTEN_UP
@@ -321,14 +329,14 @@ jmp !prep
                     str [paint_textured_intensity], rA
                     set rB, !charater_gradient
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
 
                 ; if above max, set to max
                 !paint_tex_inten_too_high
                     set rA, MAX_INTENSITY
                     str [paint_textured_intensity], rA
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
             !not_paint_tex_inten_up
 
             cmp rA, KB_PAINT_TEX_INTEN_DN
@@ -344,13 +352,13 @@ jmp !prep
                     dec rA
                     str [paint_textured_intensity], rA
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
 
                 ; if below min, set to min
                 !paint_tex_inten_too_low
                     str [paint_textured_intensity], rZ
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
             !not_paint_tex_inten_dn
 
             cmp rA, KB_PAINT_TEX_RAND_UP
@@ -366,14 +374,14 @@ jmp !prep
                     inc rA
                     str [paint_textured_randomness], rA
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
 
                 ; if above max, set to max
                 !paint_tex_rand_too_high
                     set rA, MAX_INTENSITY
                     str [paint_textured_randomness], rA
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
             !not_paint_tex_rand_up
 
             cmp rA, KB_PAINT_TEX_RAND_DN
@@ -389,21 +397,16 @@ jmp !prep
                     dec rA
                     str [paint_textured_randomness], rA
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
 
                 ; if below min, set to min
                 !paint_tex_rand_too_low
                     str [paint_textured_randomness], rZ
                     cal !config_texture
-                    jmp !keybinds_done
+                    jmp !repaint_if_brush_down
             !not_paint_tex_rand_dn
 
     !keybinds_done
-
-    lod rA, [CURSOR_X]
-    str [CURSOR_X], rA
-    lod rA, [CURSOR_Y]
-    str [CURSOR_Y], rA
 
     jmp !main_loop
 
@@ -561,3 +564,13 @@ jmp !prep
     str [CURSOR_Y], rB
 
     ret
+
+
+; Intended to be jumped to at the end of a keybind
+; Always jumbs to !keybinds_done
+!repaint_if_brush_down
+    lod rA, [move_callback]
+    cmp rA, !mcb_pen
+    jne !keybinds_done
+    cal rA
+    jmp !keybinds_done
