@@ -10,8 +10,8 @@ jmp !prep
     .const PRINT_CHAR     0x9004
     .const SET_CURSOR_VIS 0x9005
     .const SET_TITLE      0x9006
-    .const SET_X          0x9007
-    .const SET_Y          0x9008
+    .const CURSOR_X       0x9007
+    .const CURSOR_Y       0x9008
     .const KEY_CNT        0x9009
     .const GET_KEY        0x900A
     .const MOVE_E         0x9010
@@ -22,6 +22,10 @@ jmp !prep
     .const MOVE_NW        0x9015
     .const MOVE_N         0x9016
     .const MOVE_NE        0x9017
+    .const MOVE_PX        0x9010
+    .const MOVE_NX        0x9014
+    .const MOVE_PY        0x9012
+    .const MOVE_NY        0x9016
     .const MOVE           0x9020
 
 ; COLOR CONSTANTS
@@ -80,7 +84,6 @@ jmp !prep
     .const KEY_NUMPAD7  133
     .const KEY_NUMPAD8  134
     .const KEY_NUMPAD9  135
-
 
 ; KEYBINDS
     .const KB_UP                    'w'
@@ -232,6 +235,29 @@ jmp !prep
                 cal !mcb_pen
                 jmp !keybinds_done
             !not_brush_pen
+
+            cmp rA, KB_BRUSH_FILL
+            jne !not_brush_fill
+                set rA, !mcb_fill
+                lod rB, [move_callback]
+                
+                cmp rA, rB
+                je !already_filling
+
+                ; Start filling (store start x/y)
+                    str [move_callback], rA
+                    lod rA, [CURSOR_X]
+                    lod rB, [CURSOR_Y]
+                    str [brush_fill_start_x], rA
+                    str [brush_fill_start_y], rB
+                    jmp !keybinds_done
+
+                !already_filling
+                    cal !do_fill
+                    set rA, !mcb_up
+                    str [move_callback], rA
+                    jmp !keybinds_done
+            !not_brush_fill
         
 
         ; Paint mode
@@ -248,7 +274,6 @@ jmp !prep
                 str [paint_callback], rA
                 jmp !keybinds_done
             !not_paint_mode_tex
-
 
 
         ; Paint settings
@@ -395,6 +420,9 @@ jmp !prep
     cal rA
     ret
 
+!mcb_fill
+    ret
+
 
 ; Paint is uniform, so just draw the specified character
 !pcb_uniform
@@ -434,4 +462,81 @@ jmp !prep
         set rB, rC
     !random_is_fine
     str [paint_textured_true_rand], rB
+    ret
+
+!do_fill
+    lod rA, [CURSOR_X]
+    psh rA
+    lod rB, [brush_fill_start_x]
+    
+    ; Store min_x in rA, max_x in rB
+    cmp rA, rB
+    jle !min_x_fine
+        set rC, rA
+        set rA, rB
+        set rB, rC
+    !min_x_fine
+
+    lod rC, [CURSOR_Y]
+    psh rC
+    lod rD, [brush_fill_start_y]
+    
+    ; Store min_y in rC, max_y in rD
+    cmp rC, rD
+    jle !min_y_fine
+        set rE, rC
+        set rC, rD
+        set rD, rE
+    !min_y_fine
+
+    str [CURSOR_X], rB
+
+    !fill_x_loop_begin
+        ; Set start_y
+        str [CURSOR_Y], rD
+        ; Store start_y
+        psh rD
+        ; Get paint callback
+        lod rE, [paint_callback]
+
+        !fill_y_loop_begin
+            psh rA
+            psh rB
+            psh rC
+            psh rD
+
+            ; Draw a character
+            cal rE
+
+            pop rD
+            pop rC
+            pop rB
+            pop rA
+
+            ; Move down
+            str [MOVE_NY], rZ
+            dec rD
+
+            ; Check if should continue y loop
+            cmp rC, rD
+            jle !fill_y_loop_begin
+        
+        ; Reload start_y
+        pop rD
+
+        ; Move down
+        str [MOVE_NX], rZ
+        dec rB
+
+        ; Check if should continue x loop
+        cmp rA, rB
+        jle !fill_x_loop_begin
+
+
+    ; Restore original cursor position
+    pop rB
+    pop rA
+    str [CURSOR_X], rA
+    str [CURSOR_Y], rB
+
     ret
