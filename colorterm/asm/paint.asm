@@ -127,9 +127,9 @@ jmp !prep
         .var paint_textured_intensity_ptr 0
 
     !charater_gradient
-    ;     0   1   2   3   4   5   6   7   8   9  10  11  12  13  14  15  16(unreachable)
-    .raw ' ' '.' ''' ',' '-' ':' ';' '*' '^' '+' 'i' 'O' '%' '$' '&' '#' 'E'
-    ;        ....'''',,,,----::::;;;;****^^^^++++iiiiOOO%%%%$$$$&&&&#### ERROR
+    ;   |0   1   2   3   4   5   6   7   8   9   10  11  12  13  14  15  | 16(unreachable)
+    ;   |    ....'''',,,,----::::;;;;****^^^^++++iiiiOOOO%%%%$$$$&&&&#### | ERROR
+    .raw ' ' '.' ''' ',' '-' ':' ';' '*' '^' '+' 'i' 'O' '%' '$' '&' '#'   'E'
     .const MAX_INTENSITY 15
 
 
@@ -567,7 +567,7 @@ jmp !prep
 
 
 ; Intended to be jumped to at the end of a keybind
-; Always jumbs to !keybinds_done
+; Always jumps to !keybinds_done
 !repaint_if_brush_down
     lod rA, [move_callback]
     cmp rA, !mcb_pen
