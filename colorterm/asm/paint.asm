@@ -86,6 +86,7 @@ jmp !prep
     .const KEY_NUMPAD9  135
 
 ; KEYBINDS
+    ; Commented out keybinds are for planned features
     .const KB_UP                    'w'
     .const KB_LEFT                  'a'
     .const KB_DOWN                  's'
@@ -94,7 +95,7 @@ jmp !prep
     .const KB_BRUSH_ERASE           'J'
     .const KB_BRUSH_UP              'h'
     .const KB_BRUSH_PEN             'k'
-    .const KB_BRUSH_RADIAL          'l'
+    ; .const KB_BRUSH_RADIAL          'l'
     .const KB_BRUSH_FILL            ';'
     .const KB_PAINT_MODE_UNI        'g'
     .const KB_PAINT_MODE_TEX        'b'
@@ -104,7 +105,7 @@ jmp !prep
     .const KB_PAINT_TEX_INTEN_DN    'I'
     .const KB_PAINT_TEX_RAND_UP     'o'
     .const KB_PAINT_TEX_RAND_DN     'O'
-    .const KB_PAINT_RAD_RADI        'm'
+    ; .const KB_PAINT_RAD_RADI        'm'
 
 
 ; ARRAYS AND WHATNOT
