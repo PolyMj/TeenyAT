@@ -1,3 +1,5 @@
+jmp !main
+
 ; TeenyAT Constants
 .const PORT_A_DIR   0x8000
 .const PORT_B_DIR   0x8001
@@ -36,12 +38,11 @@
     ;   [2] = Faces begin (location of first face)
     ;   [3] = Faces end (earliest location past last face)
     ;   [4] = Barycentric data address (just a single barycentric struct)
-    .const MM_STRIDE    5
+    .const MM_STRIDE    4
         .const MM_V_BEGIN   0
         .const MM_V_END     1
         .const MM_F_BEGIN   2
         .const MM_F_END     3
-        .const MM_BARY      4
 
     ; Current vert structure:
     ;   [0] = X | 8 bit unsigned int stored in 16 bits
@@ -79,24 +80,36 @@
     ;   3 Lines
     ; Size = 18 words
     .const BARY_STRIDE  18
-        .const B_V_MIN_X    0   ; Lower corner of bounding box
-        .const B_V_MIN_Y    1
-        .const B_V_MAX_X    2   ; Upper corner of bounding box
-        .const B_V_MAX_Y    3
-        .const B_V_CNT_X    4   ; Center of bounding box (might not need this, could just add above two and bitshift)
-        .const B_V_CNT_Y    5
-        .const B_L_AB_DX    6   ; Line AB
-        .const B_L_AB_DY    7
-        .const B_L_AB_C     8
-        .const B_L_AB_DIV   9
-        .const B_L_BC_DX    10  ; Line BC
-        .const B_L_BC_DY    11
-        .const B_L_BC_C     12
-        .const B_L_BC_DIV   13
-        .const B_L_CA_DX    14  ; Line CA
-        .const B_L_CA_DY    15
-        .const B_L_CA_C     16
-        .const B_L_CA_DIV   17
+    !barycentric_corners
+        .var B_V_MIN_X   ; Lower corner of bounding box
+        .var B_V_MIN_Y
+        .var B_V_MAX_X   ; Upper corner of bounding box
+        .var B_V_MAX_Y
+        ; These constants are here so that we can use the lone "corners" address
+        ; to grab all vertex data of cornes, no need to load multiple addresses
+        .const OFF_B_V_MIN_X    0   ; Lower corner of bounding box
+        .const OFF_B_V_MIN_Y    1
+        .const OFF_B_V_MAX_X    2   ; Upper corner of bounding box
+        .const OFF_B_V_MAX_Y    3
+    !barycentric_center
+        .var B_V_CNT_X   ; Center of bounding box (might not need this, could just add above two and bitshift)
+        .var B_V_CNT_Y
+    !barycentric_line_AB
+        .var B_L_AB_DX   ; Line AB
+        .var B_L_AB_DY
+        .var B_L_AB_C
+        .var B_L_AB_DIV
+    !barycentric_line_BC
+        .var B_L_BC_DX   ; Line BC
+        .var B_L_BC_DY
+        .var B_L_BC_C
+        .var B_L_BC_DIV
+    !barycentric_line_CB
+        .var B_L_CA_DX   ; Line CA
+        .var B_L_CA_DY
+        .var B_L_CA_C
+        .var B_L_CA_DIV
+        
 
 ; ### END DATA STRUCTURES ###
 
@@ -104,18 +117,16 @@
 
 ; Stores a model containing a single triangle
 ; Not intended to be called; this is where the program starts, i.e. a preprocessing step
-!generate_triangle
+!main
 
     set rE, !END
 
-    set rD, rE
-    add rD, MM_STRIDE           ; Get address after model metadata
-    str [rE + MM_BARY], rD      ; STORE IN META: BARYCENTRIC
+    set rD, rE       ; Get address after barycentric
+    add rD, MM_STRIDE
 
 
     ; BEGIN: VERTEX ARRAY
     
-        add rD, BARY_STRIDE         ; Get address after barycentric
         str [rE + MM_V_BEGIN], rD   ; STORE IN META: VERT_BEGIN
         
         set rA,  18          ; Set X
@@ -185,7 +196,10 @@
         set rD, rZ
         set rE, rZ
 
-    jmp !main
+    set rC, rZ
+    str [DRAWSTROKE], rZ
+
+    jmp !loop
 
 
 ; Creates a line equation from two points
@@ -288,19 +302,20 @@
     !mb_AY_not_max
 
 
-    lod rE, [SP + 10]            ; Address of barycentric data
+    set rE, !barycentric_corners
 
-    str [rE + B_V_MIN_X], rA    ; Store min_x
-    str [rE + B_V_MIN_Y], rB    ; Store min_y
-    str [rE + B_V_MAX_X], rC    ; Store max_x
-    str [rE + B_V_MAX_Y], rD    ; Store max_y
+    str [rE + OFF_B_V_MIN_X], rA    ; Store min_x
+    str [rE + OFF_B_V_MIN_Y], rB    ; Store min_y
+    str [rE + OFF_B_V_MAX_X], rC    ; Store max_x
+    str [rE + OFF_B_V_MAX_Y], rD    ; Store max_y
 
     add rA, rC
     add rB, rD
     shr rA, 1
     shr rB, 1
-    str [rE + B_V_CNT_X], rA    ; Store center_x
-    str [rE + B_V_CNT_Y], rB    ; Store center_y
+    set rE, !barycentric_center
+    str [rE + V_X], rA    ; Store center_x
+    str [rE + V_Y], rB    ; Store center_y
 
     ; Compute line equations...
 
@@ -319,17 +334,18 @@
 ;   Memory address of barycentric object to read from
 ; For now, just draws the bounding box, not a triangle
 !drawbary
+    set rE, !barycentric_corners
 
-    lod rD, [rE + B_V_MIN_X]    ; Load min_x of bounding box
+    lod rD, [rE + OFF_B_V_MIN_X]    ; Load min_x of bounding box
     str [X1], rD
 
-    lod rD, [rE + B_V_MIN_Y]    ; Load min_y of bounding box
+    lod rD, [rE + OFF_B_V_MIN_Y]    ; Load min_y of bounding box
     str [Y1], rD
 
-    lod rD, [rE + B_V_MAX_X]    ; Load max_x of bounding box
+    lod rD, [rE + OFF_B_V_MAX_X]    ; Load max_x of bounding box
     str [X2], rD
 
-    lod rD, [rE + B_V_MAX_Y]    ; Load max_x of bounding box
+    lod rD, [rE + OFF_B_V_MAX_Y]    ; Load max_x of bounding box
     str [Y2], rD
 
     lod rD, [RAND_BITS]         ; Get random color
@@ -351,27 +367,22 @@
     lod rB, [rE + MM_F_BEGIN]   ; Face addr
     lod rC, [rE + MM_V_BEGIN]   ; Vert addr
     lod rD, [rE + MM_F_END]     ; Face end addr
-    lod rA, [rE + MM_BARY]      ; Barycentric addr
 
     !r_cal_makebary
 
         psh rD ; Push face end (not a parameter of !makebary)
 
-        psh rA ; Push bary
         psh rB ; Push faces
         psh rC ; Push vertices
         cal !makebary
         pop rC ; Grab vertices
         pop rB ; Grab faces
-        pop rA ; Grab barycentric
 
         pop rD ; Grab face end
 
 
         psh rD ; Save face end address
-        psh rA ; Push barycentric address
         cal !drawbary
-        inc SP ; "Pop"
         pop rD ; Grab face end address
 
         ; Check if more faces. If more, continue looping, else break
@@ -410,15 +421,6 @@
         cmp rA, rZ
         jg !delay_loop
     ret
-
-
-
-
-!main
-    set rC, rZ
-    str [DRAWSTROKE], rZ
-
-    jmp !loop
 
 
 
