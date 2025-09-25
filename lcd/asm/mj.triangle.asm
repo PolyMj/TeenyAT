@@ -109,6 +109,11 @@ jmp !main
         .var B_L_CA_DY
         .var B_L_CA_C
         .var B_L_CA_DIV
+     
+    ; Information about the model being rendered
+    .var cm_vert_bgn
+    .var cm_face_bgn
+    .var cm_face_end
         
 
 ; ### END DATA STRUCTURES ###
@@ -223,8 +228,8 @@ jmp !main
 ;       If the triangle is kept, it increments by BARY_STRIDE
 !makebary
 
-    lod rE, [SP + 2]    ; rE = Vertices
-    lod rD, [SP + 3]    ; rD = Face (gets overwritten at some point, remember to reload from stack)
+    lod rE, [cm_vert_bgn]   ; rE = Vertices
+    lod rD, [SP + 2]        ; rD = Face (gets overwritten at some point, remember to reload from stack)
 
     lod rC, [rD + F_A]  ; Load first index of face
     mpy rC, VERT_STRIDE ; Get location of vertex relative to vertex array
@@ -364,30 +369,27 @@ jmp !main
 !render
     
     lod rE, [SP + 2]            ; Model addr
-    lod rB, [rE + MM_F_BEGIN]   ; Face addr
-    lod rC, [rE + MM_V_BEGIN]   ; Vert addr
-    lod rD, [rE + MM_F_END]     ; Face end addr
+    lod rA, [rE + MM_F_BEGIN]   ; Face addr
+    lod rB, [rE + MM_V_BEGIN]   ; Vert addr
+    lod rC, [rE + MM_F_END]     ; Face end addr
+
+    str [cm_face_bgn], rA
+    str [cm_vert_bgn], rB
+    str [cm_face_end], rC
+
 
     !r_cal_makebary
-
-        psh rD ; Push face end (not a parameter of !makebary)
-
-        psh rB ; Push faces
-        psh rC ; Push vertices
+        
+        psh rA
         cal !makebary
-        pop rC ; Grab vertices
-        pop rB ; Grab faces
+        pop rA
 
-        pop rD ; Grab face end
-
-
-        psh rD ; Save face end address
         cal !drawbary
-        pop rD ; Grab face end address
 
         ; Check if more faces. If more, continue looping, else break
-        add rB, FACE_STRIDE     ; Increment to next face
-        cmp rB, rD              ; Compare face address and end address
+        lod rC, [cm_face_end]
+        add rA, FACE_STRIDE     ; Increment to next face
+        cmp rA, rC              ; Compare face address and end address
         jl  !r_cal_makebary     ; Loop back if face_addr < face_end_addr
     
     ; #END#: r_cal_makebary
