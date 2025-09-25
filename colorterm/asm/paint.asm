@@ -1,7 +1,7 @@
-jmp !prep
+jmp !main
 
 ; PERIPHERAL CONSTANTS
-    .const RAND_POS       0x8010
+    .const RAND_POSI      0x8010
     .const RAND_BITS      0x8011
     .const SET_FG_COLOR   0x9000
     .const SET_BG_COLOR   0x9001
@@ -87,21 +87,21 @@ jmp !prep
 
 ; KEYBINDS
     ; Commented out keybinds are for planned features
-    .const KB_UP                    'w'
+    .const KB_UP                    'w' ; Movement
     .const KB_LEFT                  'a'
     .const KB_DOWN                  's'
     .const KB_RIGHT                 'd'
-    .const KB_BRUSH_SINGLE          'j'
+    .const KB_BRUSH_SINGLE          'j' ; Brush modes
     .const KB_BRUSH_ERASE           'J'
     .const KB_BRUSH_UP              'h'
     .const KB_BRUSH_PEN             'k'
-    ; .const KB_BRUSH_RADIAL          'l'
-    .const KB_BRUSH_FILL            ';'
-    .const KB_PAINT_MODE_UNI        'g'
+    .const KB_BRUSH_FILL            'l'
+    ; .const KB_BRUSH_RADIAL          ';'
+    .const KB_PAINT_MODE_UNI        'g' ; Paint modes
     .const KB_PAINT_MODE_TEX        'b'
-    .const KB_PAINT_BG_COL          'y'
+    .const KB_PAINT_BG_COL          'y' ; Change color
     .const KB_PAINT_FG_COL          'u'
-    .const KB_PAINT_TEX_INTEN_UP    'i'
+    .const KB_PAINT_TEX_INTEN_UP    'i' ; Texture-mode settings
     .const KB_PAINT_TEX_INTEN_DN    'I'
     .const KB_PAINT_TEX_RAND_UP     'o'
     .const KB_PAINT_TEX_RAND_DN     'O'
@@ -133,8 +133,10 @@ jmp !prep
     .raw ' ' '.' ''' ',' '-' ':' ';' '*' '^' '+' 'i' 'O' '%' '$' '&' '#'   'E'
     .const MAX_INTENSITY 15
 
+!TITLE
+    .raw '<' '<' ' ' 'P' 'A' 'I' 'N' 'T' ' ' 'S' 'T' 'U' 'F' 'F' ' ' '>' '>' 0
 
-!prep
+!main
     set rB, 3
     set rA, MAX_INTENSITY
     sub rA, rB
@@ -150,6 +152,23 @@ jmp !prep
     cal !config_texture
 
     str [CLEAR_SCREEN], rZ
+
+    set rE, !TITLE
+    !title_loop
+        lod rA, [rE]
+        cmp rA, rZ
+        je !title_done
+
+        str [SET_TITLE], rA
+        inc rE
+        jmp !title_loop
+    !title_done
+    
+    set rA, rZ
+    set rB, rZ
+    set rC, rZ
+    set rD, rZ
+    set rE, rZ
     
     jmp !main_loop
 
@@ -460,7 +479,7 @@ jmp !prep
     jle !skip_rand
         ; Add random value to intensity
         inc rA
-        lod rB, [RAND_POS]
+        lod rB, [RAND_POSI]
         mod rB, rA
     !skip_rand
 
